@@ -1,5 +1,5 @@
 (function() {
-  console.log("Injected Vidu AI Customizer script running (v1.0).");
+  console.log("Injected wyrtensi vidu studio script running (v1.0).");
 
   // Inject global styles
   injectStyleOverrides();
