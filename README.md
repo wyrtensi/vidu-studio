@@ -10,6 +10,6 @@ A chrome extension that customizes the Vidu AI (vidu.com) page with additional f
 ![image](https://github.com/user-attachments/assets/3a1aca37-7755-4bfa-8ff2-dfee1cdef5f5)<br>
 4. Autoclicker for create button, to spam generations to processing:<br>
 ![image](https://github.com/user-attachments/assets/79417017-cfcd-4160-befa-2e4484c27e5b)<br>
-5. Spam popups offering an upgrade is blocked:<br>
+5. Spam popup offering an upgrade is blocked:<br>
 ![image](https://github.com/user-attachments/assets/f8c9053c-1e08-4a73-b8ce-225fa612d9c9)
 
