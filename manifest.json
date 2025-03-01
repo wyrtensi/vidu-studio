@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "wyrtensi vidu studio",
-  "version": "1.0",
+  "version": "1.1",
   "description": "Customizes the Vidu AI (vidu.com) page with additional functionality.",
   "permissions": [
     "scripting",
@@ -18,7 +18,7 @@
   "content_scripts": [
     {
       "matches": ["https://www.vidu.com/create/character2video*", "https://www.vidu.com/create/img2video*"],
-      "js": ["utils.js", "domManipulations.js", "eventHandlers.js", "injected.js"],
+      "js": ["utils.js", "domManipulations.js", "eventHandlers.js", "upload.js", "injected.js"],
       "run_at": "document_idle"
     }
   ],
