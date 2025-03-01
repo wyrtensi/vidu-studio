@@ -1,6 +1,5 @@
 // eventHandlers.js
 
-// === Captcha Handling ===
 function handleCaptchaPopup() {
   const captchaContainer = document.querySelector("#aws-captcha-container");
   if (captchaContainer && captchaContainer.offsetParent !== null) {
@@ -8,14 +7,20 @@ function handleCaptchaPopup() {
     if (autoCheckbox && autoCheckbox.checked) {
       autoCheckbox.checked = false;
       autoCheckbox.dispatchEvent(new Event("change"));
-      console.log("Diagnostic: Captcha detected. Auto-click disabled.");
     }
   }
 }
 
-// === Observe for Dialog Additions ===
+function debounce(func, wait) {
+  let timeout;
+  return function (...args) {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func.apply(this, args), wait);
+  };
+}
+
 function observeForDialog() {
-  const dialogObserver = new MutationObserver((mutations) => {
+  const debouncedDialogObserverCallback = debounce((mutations) => {
     mutations.forEach(mutation => {
       mutation.addedNodes.forEach(node => {
         if (node.nodeType === Node.ELEMENT_NODE) {
@@ -23,18 +28,18 @@ function observeForDialog() {
           if (el.getAttribute("role") === "dialog") {
             if (el.textContent.includes("Credits Exhausted") || el.textContent.includes("Subscription Plans")) {
               el.style.display = 'none';
-              console.log("Diagnostic: Hidden dialog:", el.textContent.includes("Credits Exhausted") ? "Credits Exhausted" : "Subscription Plans");
               hideUnnecessaryOverlay();
             }
           }
         }
       });
     });
-  });
+  }, 500);
+
+  const dialogObserver = new MutationObserver(debouncedDialogObserverCallback);
   dialogObserver.observe(document.body, { childList: true, subtree: true });
 }
 
-// === Hide Unnecessary Overlay ===
 function hideUnnecessaryOverlay() {
   const overlay = document.querySelector('div[data-state="open"].fixed.inset-0');
   if (overlay && overlay.style.display !== 'none') {
@@ -42,7 +47,6 @@ function hideUnnecessaryOverlay() {
       .filter(dialog => dialog.offsetParent !== null && dialog.style.display !== 'none');
     if (visibleDialogs.length === 0) {
       overlay.style.display = 'none';
-      console.log("Diagnostic: Hidden unnecessary overlay.");
     }
   }
 }

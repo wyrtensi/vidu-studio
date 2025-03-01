@@ -1,7 +1,6 @@
 // utils.js
 
-// Waits for an element to appear in the DOM
-function waitForElement(selector, interval = 500, timeout = 15000) {
+function waitForElement(selector, interval = 1000, timeout = 15000) { // Increased interval to 1000ms
   return new Promise((resolve, reject) => {
     const startTime = Date.now();
     const timer = setInterval(() => {
@@ -17,8 +16,7 @@ function waitForElement(selector, interval = 500, timeout = 15000) {
   });
 }
 
-// Waits for a button with specific text to appear
-function waitForButtonWithText(text, interval = 500, timeout = 15000) {
+function waitForButtonWithText(text, interval = 1000, timeout = 15000) { // Increased interval to 1000ms
   return new Promise((resolve, reject) => {
     const startTime = Date.now();
     const timer = setInterval(() => {
@@ -36,8 +34,7 @@ function waitForButtonWithText(text, interval = 500, timeout = 15000) {
   });
 }
 
-// Waits for the credits module to appear
-function waitForCreditModule(interval = 500, timeout = 0) {
+function waitForCreditModule(interval = 1000, timeout = 0) { // Increased interval to 1000ms
   return new Promise((resolve, reject) => {
     const startTime = Date.now();
     const timer = setInterval(() => {
@@ -55,7 +52,6 @@ function waitForCreditModule(interval = 500, timeout = 0) {
   });
 }
 
-// Injects custom styles into the page
 function injectStyleOverrides() {
   if (!document.getElementById("vidu-ai-customizer-style")) {
     const styleTag = document.createElement("style");
@@ -112,8 +108,11 @@ function injectStyleOverrides() {
       #recent-prompts-suggestions div:hover {
           background: rgba(26,195,255,0.2);
       }
+      .upload-wrapper.dragover {
+        border: 2px dashed #1AC3FF;
+        background: rgba(26,195,255,0.1);
+      }
     `;
     document.head.appendChild(styleTag);
-    console.log("Diagnostic: Global style override injected.");
   }
 }

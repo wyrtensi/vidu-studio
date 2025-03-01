@@ -1,71 +1,52 @@
+// injected.js
+
 (function() {
-  console.log("Injected wyrtensi vidu studio script running (v1.0).");
+  console.log("Injected wyrtensi vidu studio script running.");
 
-  // Inject global styles
   injectStyleOverrides();
-
-  // Observe for dialog additions
   observeForDialog();
 
-  // Periodically check for captcha and overlays
-  setInterval(() => {
+  setInterval(() => { // Increased to 1000ms
     handleCaptchaPopup();
     hideUnnecessaryOverlay();
-    handleOutOfCreditsButton(); // Check button state periodically
-  }, 500);
+    handleOutOfCreditsButton();
+  }, 1000);
 
-  // Run customizations
   runCustomizations();
 
-  // Reapply customizations on SPA navigation
   window.addEventListener("popstate", () => {
-    console.log("Diagnostic: Popstate event detected. Reapplying customizations.");
     runCustomizations();
   });
-
-  console.log("Diagnostic: Injected script via background successfully.");
 })();
 
 function runCustomizations() {
   Promise.all([
-    waitForElement("textarea[maxlength='1500']", 500, 15000),
-    waitForElement("div.absolute.bottom-0.left-0.mt-4.flex.w-full.justify-center.px-10", 500, 15000),
-    waitForElement('div[role="radiogroup"] button[role="radio"]', 500, 15000) // Wait for aspect ratio buttons
+    waitForElement("textarea[maxlength='1500']", 1000, 15000), // Increased interval to 1000ms
+    waitForElement("div.absolute.bottom-0.left-0.mt-4.flex.w-full.justify-center.px-10", 1000, 15000),
+    waitForElement('div[role="radiogroup"] button[role="radio"]', 1000, 15000)
   ])
     .then(([textarea, createContainer, aspectRatioButton]) => {
       initRecentPrompts();
       createAutoCheckbox();
       observeCreateButton();
-      handleOutOfCreditsButton(); // Handle out-of-credits behavior
+      handleOutOfCreditsButton();
 
-      // Improved Aspect Ratio Handling
       const aspectRatioButtons = document.querySelectorAll('div[role="radiogroup"] button[role="radio"]');
-      const savedAspectRatio = localStorage.getItem("aspectRatio") || "9:16"; // Default to 9:16
+      const savedAspectRatio = localStorage.getItem("aspectRatio") || "9:16";
 
-      // Function to select aspect ratio
       const selectAspectRatio = (value) => {
         const button = Array.from(aspectRatioButtons).find(btn => btn.value === value);
-        if (button) {
-          button.click(); // Simulate click to select
-          console.log(`Diagnostic: Selected aspect ratio: ${value}`);
-        } else {
-          console.warn(`Diagnostic: No button found for aspect ratio: ${value}`);
-        }
+        if (button) button.click();
       };
 
-      // Apply saved or default aspect ratio
       selectAspectRatio(savedAspectRatio);
 
-      // Save user selection when changed
       aspectRatioButtons.forEach(button => {
         button.addEventListener("click", function() {
-          const selectedValue = this.value;
-          localStorage.setItem("aspectRatio", selectedValue);
-          console.log("Diagnostic: Aspect ratio saved:", selectedValue);
+          localStorage.setItem("aspectRatio", this.value);
         });
       });
 
-      // Custom Header and Credits Module
       const viduButton = Array.from(document.querySelectorAll("button")).find(b =>
         b.textContent.trim().includes("Vidu 2.0")
       );
@@ -79,28 +60,24 @@ function runCustomizations() {
           customDiv.setAttribute("data-status", "highlight");
           customDiv.style.marginLeft = "12px";
           viduButton.insertAdjacentElement("afterend", customDiv);
-          console.log("Diagnostic: Custom header text inserted.");
         }
 
-        // Wait for the credits module and delay moving it
-        waitForCreditModule(500, 30000)
+        waitForCreditModule(1000, 30000) // Increased interval to 1000ms
           .then(creditModule => {
             setTimeout(() => {
               const parent = creditModule.parentElement;
               if (parent && parent.contains(creditModule)) {
-                parent.removeChild(creditModule); // Remove from original location
+                parent.removeChild(creditModule);
               }
-              creditModule.style.marginLeft = "8px"; // Add spacing
-              customDiv.insertAdjacentElement("afterend", creditModule); // Insert next to custom header
-              console.log("Diagnostic: Credit module moved next to custom header text after delay.");
-            }, 1500); // Delay moving by 1.5 seconds
+              creditModule.style.marginLeft = "8px";
+              customDiv.insertAdjacentElement("afterend", creditModule);
+            }, 1500);
           })
           .catch(e => console.warn("Diagnostic: Credit module not found within timeout:", e.message));
       }
 
       hideCreditPopupDialog();
 
-      // Clean History Button for character2video
       if (window.location.pathname.includes("/create/character2video")) {
         const buttonsContainer = document.querySelector(".flex.items-center.gap-3");
         if (buttonsContainer && !document.getElementById("clean-history-button")) {
@@ -113,21 +90,17 @@ function runCustomizations() {
           cleanHistoryButton.addEventListener("click", function() {
             recentPrompts = [];
             localStorage.setItem("recentPrompts", JSON.stringify(recentPrompts));
-            console.log("Diagnostic: Recent prompts history cleared.");
             const suggestionsContainer = document.getElementById("recent-prompts-suggestions");
             if (suggestionsContainer) {
               suggestionsContainer.innerHTML = "";
               suggestionsContainer.style.display = "none";
-              console.log("Diagnostic: Suggestions container cleared and hidden.");
             }
             if (typeof updateSuggestions === "function") {
               setTimeout(updateSuggestions, 100);
-              console.log("Diagnostic: Suggestions update scheduled after cleaning history.");
             }
           });
           buttonsContainer.appendChild(separator);
           buttonsContainer.appendChild(cleanHistoryButton);
-          console.log("Diagnostic: Clean History button added on character2video tab.");
         }
       }
     })
@@ -141,7 +114,6 @@ function hideUnnecessaryOverlay() {
       .filter(dialog => dialog.offsetParent !== null && dialog.style.display !== 'none');
     if (visibleDialogs.length === 0) {
       overlay.style.display = 'none';
-      console.log("Diagnostic: Hidden unnecessary overlay.");
     }
   }
 }

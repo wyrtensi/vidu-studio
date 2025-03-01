@@ -1,6 +1,5 @@
 // domManipulations.js
 
-// === Element Helpers ===
 function findCreateContainer() {
   return document.querySelector("div.absolute.bottom-0.left-0.mt-4.flex.w-full.justify-center.px-10");
 }
@@ -10,10 +9,9 @@ function findCreateButton() {
   return container ? container.querySelector("button") : null;
 }
 
-// === Auto Checkbox Creation ===
 let autoClickInterval = null;
 function createAutoCheckbox() {
-  waitForElement("div.absolute.bottom-0.left-0.mt-4.flex.w-full.justify-center.px-10", 500, 0)
+  waitForElement("div.absolute.bottom-0.left-0.mt-4.flex.w-full.justify-center.px-10", 1000, 0)
     .then(container => {
       if (!container.querySelector("#auto-create-checkbox")) {
         const button = container.querySelector("button");
@@ -46,19 +44,25 @@ function createAutoCheckbox() {
           checkbox.appendChild(input);
           checkbox.appendChild(label);
           button.insertAdjacentElement("afterend", checkbox);
-          console.log("Diagnostic: Auto checkbox created.");
         }
       }
     })
     .catch(e => console.warn("Diagnostic: Create container not found:", e.message));
 }
 
-// === Observe Create Button Mutations ===
+function debounce(func, wait) {
+  let timeout;
+  return function (...args) {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func.apply(this, args), wait);
+  };
+}
+
 function observeCreateButton() {
   const container = findCreateContainer();
   if (!container) return;
 
-  const observer = new MutationObserver(() => {
+  const debouncedObserverCallback = debounce(() => {
     const btn = findCreateButton();
     if (btn) {
       btn.style.width = "auto";
@@ -71,15 +75,13 @@ function observeCreateButton() {
       } else if (btn.nextSibling !== checkbox) {
         container.insertBefore(checkbox, btn.nextSibling);
       }
-
-      console.log("Diagnostic: Button styles applied and checkbox positioned.");
     }
-  });
+  }, 500);
 
+  const observer = new MutationObserver(debouncedObserverCallback);
   observer.observe(container, { childList: true, subtree: true, attributes: true });
 }
 
-// === Recent Prompts Feature ===
 let recentPrompts = [];
 let updateSuggestions;
 
@@ -90,7 +92,6 @@ function initRecentPrompts() {
       recentPrompts = recentPrompts.slice(0, 50);
       localStorage.setItem("recentPrompts", JSON.stringify(recentPrompts));
     }
-    console.log("Diagnostic: Loaded recentPrompts from localStorage:", recentPrompts);
   } catch (e) {
     console.error("Diagnostic: Error parsing recentPrompts from localStorage:", e);
     recentPrompts = [];
@@ -106,7 +107,6 @@ function initRecentPrompts() {
         suggestionsContainer.style.zIndex = "99999";
         suggestionsContainer.style.display = "none";
         document.body.appendChild(suggestionsContainer);
-        console.log("Diagnostic: Created suggestions container.");
       }
 
       updateSuggestions = function() {
@@ -114,15 +114,16 @@ function initRecentPrompts() {
         suggestionsContainer.innerHTML = "";
         if (!query || recentPrompts.length === 0) {
           suggestionsContainer.style.display = "none";
-          console.log("Diagnostic: Suggestions hidden (empty query or no prompts).");
           return;
         }
         const matches = recentPrompts.filter(prompt => prompt.toLowerCase().includes(query));
         if (matches.length > 0) {
           const rect = textarea.getBoundingClientRect();
-          suggestionsContainer.style.top = (rect.bottom + window.scrollY) + "px";
-          suggestionsContainer.style.left = (rect.left + window.scrollX) + "px";
-          suggestionsContainer.style.width = rect.width + "px";
+          requestAnimationFrame(() => {
+            suggestionsContainer.style.top = (rect.bottom + window.scrollY) + "px";
+            suggestionsContainer.style.left = (rect.left + window.scrollX) + "px";
+            suggestionsContainer.style.width = rect.width + "px";
+          });
 
           matches.forEach(match => {
             const item = document.createElement("div");
@@ -136,16 +137,13 @@ function initRecentPrompts() {
             suggestionsContainer.appendChild(item);
           });
           suggestionsContainer.style.display = "block";
-          console.log("Diagnostic: Suggestions updated with matches:", matches);
         } else {
           suggestionsContainer.style.display = "none";
-          console.log("Diagnostic: Suggestions hidden (no matches).");
         }
       };
 
       textarea.addEventListener("input", updateSuggestions);
-
-      textarea.addEventListener("blur", function() {
+      textarea.addEventListener("blur", () => {
         setTimeout(() => { suggestionsContainer.style.display = "none"; }, 200);
       });
 
@@ -161,55 +159,44 @@ function initRecentPrompts() {
                 recentPrompts.unshift(promptText);
                 if (recentPrompts.length > 50) recentPrompts.pop();
                 localStorage.setItem("recentPrompts", JSON.stringify(recentPrompts));
-                console.log("Diagnostic: Prompt saved:", promptText);
                 setTimeout(updateSuggestions, 100);
               }
             }
           }
         }, true);
         createContainer.dataset.listenerAttached = "true";
-        console.log("Diagnostic: Attached click listener to create container.");
       }
-
-      console.log("Diagnostic: Recent prompts feature initialized.");
     })
     .catch(e => console.warn("Diagnostic: Textarea for recent prompts not found:", e.message));
 }
 
-// === Hide Credit Popup Dialog ===
 function hideCreditPopupDialog() {
   const dialogs = Array.from(document.querySelectorAll('div[role="dialog"]'));
   dialogs.forEach(dialog => {
     if (dialog.textContent.includes("Credits Exhausted") || dialog.textContent.includes("Subscription Plans")) {
       dialog.style.display = "none";
-      console.log("Diagnostic: Hidden dialog:", dialog.textContent.includes("Credits Exhausted") ? "Credits Exhausted" : "Subscription Plans");
     }
   });
 }
 
-// === Handle Out of Credits Button ===
 function handleOutOfCreditsButton() {
   const checkButtonState = () => {
     const createButton = findCreateButton();
     if (createButton) {
       const buttonText = createButton.textContent.trim().toLowerCase();
       if (buttonText.includes("out of credits")) {
-        createButton.style.background = "linear-gradient(90deg, #A9A9A9, #FFC0CB)"; // Soft pink gradient
+        createButton.style.background = "linear-gradient(90deg, #A9A9A9, #FFC0CB)";
         createButton.style.cursor = "not-allowed";
-        createButton.disabled = true; // Disable to prevent clicks
-        console.log("Diagnostic: Create button styled as out of credits.");
+        createButton.disabled = true;
       } else {
-        createButton.style.background = ""; // Reset to default
+        createButton.style.background = "";
         createButton.style.cursor = "pointer";
         createButton.disabled = false;
       }
     }
   };
 
-  // Initial check
   checkButtonState();
-
-  // Observe button text or attribute changes
   const container = findCreateContainer();
   if (container) {
     const observer = new MutationObserver(checkButtonState);
