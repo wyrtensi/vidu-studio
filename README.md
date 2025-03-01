@@ -3,7 +3,7 @@ A chrome extension that customizes the Vidu AI (vidu.com) page with additional f
 # Features:
 ### 1. Shows credits on your left side so you are always able to see em.
 ![image](https://github.com/user-attachments/assets/9de12c13-e1b5-43da-b837-9f63e232928d) 
-### 2. Enchanced module for uploading pictures: (1) Drag and drop up to 3 pictures at once or open em by click. (2) All slots unlocked, you can use any slot to insert your picture.
+### 2. Enhanced module for uploading pictures: (1) Drag and drop up to 3 pictures at once or open em by click. (2) All slots unlocked, you can use any slot to insert your picture.
 ![image](https://github.com/user-attachments/assets/90a9bd44-c3a6-4e4d-b6f1-4c9528ea1e22)
 ### 3. Recent prompts suggestions, you can click clean history to wipe recent prompts history.
 ![image](https://github.com/user-attachments/assets/f292525e-65b3-4ffa-b481-4a1e944bc9da)
