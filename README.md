@@ -9,7 +9,9 @@ A chrome extension that customizes the Vidu AI (vidu.com) page with additional f
 4. Chose default aspect ratio that will be remembered next time you back to vidu.
 5. Auto click checkbox to keep your generations push into processing.
 6. Continue videos from your generations.
-7. Upload and connect videos in Image to video mode.
+7. Upload and connect videos in Image to video mode. (Enhanced Image to video module)
+Now 1st upload slot in "Image to video" takes last frame from uploaded video and 2nd upload slot takes first frame from uploaded video.
+
 
 # Installation:
 - Simply drop folder with source code your extensions manager in browser. (with developer mode enabled)
