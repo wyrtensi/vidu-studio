@@ -12,6 +12,11 @@ A chrome extension that customizes the Vidu AI (vidu.com) page with additional f
 7. Continue videos from your generations.
 8. Upload and connect videos in Image to video mode.
 
+# Installation:
+- Simply drop folder with source code your extensions manager in browser. (with developer mode enabled)
+- Or install using packed .crx file
+
+# Images:
 ![Screenshot_219](https://github.com/user-attachments/assets/d633d715-0b67-4cb7-aa13-28db9b9b9c65)
 ![Screenshot_220](https://github.com/user-attachments/assets/d8971577-4276-49c4-8a89-9d4c83d33a11)
 ![Screenshot_218](https://github.com/user-attachments/assets/696ab03e-65fe-4a68-bd6e-6f4b0d9a9b87)
