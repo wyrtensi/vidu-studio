@@ -1,6 +1,6 @@
 ![icon](https://github.com/user-attachments/assets/7d443a45-c11a-493c-b1c8-b8480c67124f)
 
-# vidu-studio
+# wyrtensi vidu studio
 A chrome extension that customizes the Vidu AI (vidu.com) page with additional functionality.<br> Mostly features "Reference to video" and "Image to video" modules improvements.
 # Features:
 1. Shows credits on your left side so you are always able to see em.
