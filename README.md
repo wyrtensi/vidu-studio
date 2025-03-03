@@ -8,9 +8,8 @@ A chrome extension that customizes the Vidu AI (vidu.com) page with additional f
 3. Recent prompts suggestions, you can click clean history to wipe recent prompts history.
 4. Chose default aspect ratio that will be remembered next time you back to vidu.
 5. Auto click checkbox to keep your generations push into processing.
-6. Removed popup windows, now its up to you to decide upgrade or not.
-7. Continue videos from your generations.
-8. Upload and connect videos in Image to video mode.
+6. Continue videos from your generations.
+7. Upload and connect videos in Image to video mode.
 
 # Installation:
 - Simply drop folder with source code your extensions manager in browser. (with developer mode enabled)
