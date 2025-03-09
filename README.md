@@ -15,6 +15,11 @@ Now 1st upload slot in "Image to video" takes last frame from uploaded video and
 
 # Installation:
 - Simply drop folder with source code your extensions manager in browser. (with developer mode enabled)
+Theres how:
+### If you have chrome for example (it can be edge or opera as well):
+1. Go to extensions manager (chrome://extensions/) and enable developer mode 
+2. Download source files ( check latest release https://github.com/wyrtensi/vidu-studio/releases )
+3. Drag and drop to your browser or load unpacked the last version of extension folder
 - Or install using packed .crx file
 
 # Images:
