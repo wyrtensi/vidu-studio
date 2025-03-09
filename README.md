@@ -4,7 +4,7 @@ Discord: https://discord.gg/jjdPXdhd
 A chrome extension that customizes the Vidu AI (vidu.com) page with additional functionality.<br> Mostly features "Reference to video" and "Image to video" modules improvements.
 # Features:
 1. Shows credits on your left side so you are always able to see em.
-2. Enhanced module for uploading pictures: (1) Drag and drop up to 3 pictures at once or open em by click. (2) All slots unlocked, you can use any slot to insert your picture.
+2. Enhanced module for uploading pictures: (1) Drag and drop up to 3 pictures at once or open em by click or paste from clipboard. (2) All slots unlocked, you can use any slot to insert your picture.
 3. Recent prompts suggestions, you can click clean history to wipe recent prompts history.
 4. Chose default aspect ratio that will be remembered next time you back to vidu.
 5. Auto click checkbox to keep your generations push into processing.
