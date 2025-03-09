@@ -12,6 +12,11 @@ if (document.body.getAttribute('data-wyrtensi-vidu-studio-injected') === 'true')
   let isSetupDone = false;
   let lastUrl = location.href;
   let isFileInputClicked = false;
+  let isProcessingFiles = false; // Flag to prevent concurrent processing
+  let processedFileIds = new Set(); // Track processed files to prevent duplicates
+  let uploadWrapper = null; // Global reference to the upload wrapper
+  let setupPromise = null; // Promise for setup completion
+  let currentTargetSlot = null; // Temporary storage for target slot in click-to-upload
 
   // Debounce utility
   function debounce(func, wait) {
@@ -26,9 +31,6 @@ if (document.body.getAttribute('data-wyrtensi-vidu-studio-injected') === 'true')
   if (!multiFileInput) {
     multiFileInput = document.createElement('input');
     multiFileInput.type = 'file';
-    multiFileInput.accept = location.pathname.includes('/create/img2video')
-      ? 'image/jpeg,image/png,image/webp,video/mp4'
-      : 'image/jpeg,image/png,image/webp';
     multiFileInput.multiple = true;
     multiFileInput.style.display = 'none';
     multiFileInput.id = 'multi-file-upload';
@@ -40,6 +42,7 @@ if (document.body.getAttribute('data-wyrtensi-vidu-studio-injected') === 'true')
         return;
       }
       isFileInputClicked = true;
+      console.log('multiFileInput clicked, accept value:', multiFileInput.accept);
       setTimeout(() => { isFileInputClicked = false; }, 500);
     });
   }
@@ -101,17 +104,41 @@ if (document.body.getAttribute('data-wyrtensi-vidu-studio-injected') === 'true')
     }
   }
 
-  // Enable all slots
+  // Get current upload slots
+  function getCurrentUploadSlots() {
+    if (!uploadWrapper) return [];
+    return Array.from(uploadWrapper.querySelectorAll('.group'));
+  }
+
+  // Enable all slots with consistent visual styles
   function enableAllSlots(uploadSlots) {
     uploadSlots.forEach(slot => {
       const input = slot.querySelector('input[type="file"]');
-      if (input) input.removeAttribute('disabled');
+      if (input) {
+        input.removeAttribute('disabled');
+        input.style.pointerEvents = 'auto';
+      }
       const label = slot.querySelector('label');
       if (label) {
         label.classList.remove('cursor-not-allowed', 'text-system-white24');
-        label.classList.add('cursor-pointer', 'hover:bg-system-hover02', 'text-system-white48');
+        label.classList.add('cursor-pointer', 'text-system-white48');
+        label.style.pointerEvents = 'auto';
+      }
+      const innerDiv = slot.querySelector('.inline-block');
+      if (innerDiv) {
+        innerDiv.classList.remove('cursor-not-allowed', 'text-system-white24');
+        innerDiv.classList.add('cursor-pointer', 'hover:bg-system-hover02');
       }
       slot.classList.add('upload-slot');
+      // Remove stop sign SVG elements
+      const stopSign = slot.querySelector('svg rect[stroke-dasharray]');
+      if (stopSign) stopSign.remove();
+      // Remove all disabled indicators
+      slot.classList.remove('disabled', 'cursor-not-allowed');
+      slot.removeAttribute('disabled');
+      slot.style.opacity = '1';
+      slot.style.pointerEvents = 'auto';
+      updateSlotStyles(slot);
     });
   }
 
@@ -119,12 +146,13 @@ if (document.body.getAttribute('data-wyrtensi-vidu-studio-injected') === 'true')
   function isSlotOccupied(slot) {
     const input = slot.querySelector('input[type="file"]');
     const img = slot.querySelector('img');
-    return (input && input.files && input.files.length > 0) || !!img;
+    const isUploading = slot.querySelector('.animate-spin') !== null;
+    return (input && input.files && input.files.length > 0) || !!img || isUploading;
   }
 
-  // Get available slots
+  // Get available slots in order
   function getAvailableSlots(uploadSlots) {
-    return Array.from(uploadSlots).filter(slot => !isSlotOccupied(slot));
+    return uploadSlots.filter(slot => !isSlotOccupied(slot));
   }
 
   // Reset a slot
@@ -154,8 +182,19 @@ if (document.body.getAttribute('data-wyrtensi-vidu-studio-injected') === 'true')
     return labelDiv && labelDiv.textContent.includes('Upload the last frame image (optional)');
   }
 
+  // Generate a unique ID for a file based on name, size, and content hash
+  async function getFileId(file) {
+    const text = `${file.name}-${file.size}`;
+    const encoder = new TextEncoder();
+    const data = encoder.encode(text);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return hashHex;
+  }
+
   // Extract frame from video
-  async function extractFrame(videoFile, isFirstFrame = false) {
+  async function extractFrame(videoFile, isFirstFrame = true) {
     return new Promise((resolve, reject) => {
       const video = document.createElement('video');
       video.src = URL.createObjectURL(videoFile);
@@ -180,56 +219,85 @@ if (document.body.getAttribute('data-wyrtensi-vidu-studio-injected') === 'true')
     });
   }
 
-  // Handle file processing
-  async function handleFiles(files, uploadSlots, targetSlot = null) {
-    const processedFiles = [];
-    for (const file of files) {
-      if (file.type.startsWith('video/')) {
-        try {
-          const isFirstFrame = targetSlot && isLastFrameSlot(targetSlot);
-          const frameBlob = await extractFrame(file, isFirstFrame);
-          const frameName = isFirstFrame ? 'first_frame.jpg' : 'last_frame.jpg';
-          const frameFile = new File([frameBlob], frameName, { type: 'image/jpeg' });
-          processedFiles.push(frameFile);
-        } catch (err) {
-          console.error('Error extracting frame from video:', err);
-        }
-      } else {
-        processedFiles.push(file);
-      }
+  // Handle file processing with concurrency and duplication prevention
+  async function handleFiles(files, targetSlot = null) {
+    if (isProcessingFiles) {
+      console.log('Processing already in progress, skipping.');
+      return;
     }
-    distributeFilesToSlots(processedFiles, uploadSlots, targetSlot);
+    isProcessingFiles = true;
+    processedFileIds.clear(); // Reset for each upload batch
+    console.log(`Processing ${files.length} files`);
+
+    try {
+      if (!setupPromise) {
+        setupPromise = setupUploadFunctionality();
+      }
+      await setupPromise;
+      const uploadSlots = getCurrentUploadSlots();
+      if (targetSlot && !uploadSlots.includes(targetSlot)) {
+        targetSlot = null; // Invalidate if not in current slots
+      }
+      const processedFiles = [];
+      const isCharacter2Video = location.pathname.includes('/create/character2video');
+
+      for (const file of files) {
+        const fileId = await getFileId(file);
+        if (processedFileIds.has(fileId)) {
+          console.log(`Duplicate file detected and skipped: ${file.name}`);
+          continue;
+        }
+        processedFileIds.add(fileId);
+
+        if (file.type.startsWith('video/')) {
+          try {
+            const isFirstFrame = isCharacter2Video || (targetSlot && !isLastFrameSlot(targetSlot));
+            const frameBlob = await extractFrame(file, isFirstFrame);
+            const frameName = isFirstFrame ? 'first_frame.jpg' : 'last_frame.jpg';
+            const frameFile = new File([frameBlob], frameName, { type: 'image/jpeg' });
+            const frameId = await getFileId(frameFile);
+            if (!processedFileIds.has(frameId)) {
+              processedFileIds.add(frameId);
+              processedFiles.push(frameFile);
+            } else {
+              console.log(`Duplicate frame skipped: ${frameName}`);
+            }
+          } catch (err) {
+            console.error('Error extracting frame from video:', err);
+          }
+        } else {
+          processedFiles.push(file);
+        }
+      }
+      distributeFilesToSlots(processedFiles, uploadSlots, targetSlot);
+    } finally {
+      isProcessingFiles = false;
+    }
   }
 
-  // Distribute files to slots with duplicate prevention
+  // Distribute files to slots with enhanced anti-duplication
   function distributeFilesToSlots(files, uploadSlots, targetSlot = null) {
-    const uniqueFiles = Array.from(files).filter((file, index, self) =>
-      index === self.findIndex(f => f.name === file.name && f.size === file.size)
-    );
-
-    if (uniqueFiles.length === 0) return;
-
-    // Get currently available slots before any assignment
     const availableSlots = getAvailableSlots(uploadSlots);
+    console.log(`Distributing ${files.length} files to slots: ${availableSlots.map(slot => slot.id || slot.className).join(', ')}`);
 
-    if (targetSlot && availableSlots.includes(targetSlot)) {
+    if (files.length === 0) return;
+
+    if (targetSlot && availableSlots.includes(targetSlot) && files.length === 1) {
+      // Specific slot targeting (e.g., click-to-upload)
       resetSlot(targetSlot);
       const input = targetSlot.querySelector('input[type="file"]');
       if (input) {
         const dataTransfer = new DataTransfer();
-        dataTransfer.items.add(uniqueFiles[0]);
+        dataTransfer.items.add(files[0]);
         input.files = dataTransfer.files;
         input.dispatchEvent(new Event('change', { bubbles: true }));
         updateSlotStyles(targetSlot);
       }
-      uniqueFiles.shift(); // Remove the file assigned to targetSlot
-    }
-
-    // Assign remaining files to available slots
-    uniqueFiles.forEach((file, index) => {
-      if (index < availableSlots.length) {
-        const slot = availableSlots[index];
-        if (slot) {
+    } else {
+      // General distribution to available slots
+      for (const file of files) {
+        if (availableSlots.length > 0) {
+          const slot = availableSlots.shift(); // Take the first available slot
           resetSlot(slot);
           const input = slot.querySelector('input[type="file"]');
           if (input) {
@@ -239,33 +307,37 @@ if (document.body.getAttribute('data-wyrtensi-vidu-studio-injected') === 'true')
             input.dispatchEvent(new Event('change', { bubbles: true }));
             updateSlotStyles(slot);
           }
+        } else {
+          console.log('No more available slots for additional files.');
+          break;
         }
       }
-    });
+    }
   }
 
   // Setup drag and drop
-  function setupDragAndDrop(uploadWrapper, uploadSlots) {
+  function setupDragAndDrop(uploadWrapper) {
     uploadWrapper.addEventListener('dragover', (event) => event.preventDefault());
-    uploadWrapper.addEventListener('drop', (event) => {
+    uploadWrapper.addEventListener('drop', async (event) => {
       event.preventDefault();
       event.stopPropagation();
       const files = event.dataTransfer.files;
-      handleFiles(files, uploadSlots);
+      await handleFiles(files);
     });
 
+    const uploadSlots = getCurrentUploadSlots();
     uploadSlots.forEach(slot => {
       slot.addEventListener('dragover', (event) => {
         event.preventDefault();
         slot.classList.add('dragover');
       });
       slot.addEventListener('dragleave', (event) => slot.classList.remove('dragover'));
-      slot.addEventListener('drop', (event) => {
+      slot.addEventListener('drop', async (event) => {
         event.preventDefault();
         event.stopPropagation();
         slot.classList.remove('dragover');
         const files = event.dataTransfer.files;
-        handleFiles(files, uploadSlots, slot);
+        await handleFiles(files, slot);
       });
     });
 
@@ -275,29 +347,67 @@ if (document.body.getAttribute('data-wyrtensi-vidu-studio-injected') === 'true')
   }
 
   // Setup click to upload
-  function setupClickToUpload(uploadWrapper, uploadSlots) {
+  function setupClickToUpload(uploadWrapper) {
     uploadWrapper.addEventListener('click', (event) => {
       const slot = event.target.closest('.group');
-      if (slot && uploadSlots.includes(slot) && !event.target.closest('.flex.cursor-pointer')) {
+      if (slot && !event.target.closest('.flex.cursor-pointer')) {
         event.preventDefault();
         event.stopPropagation();
         if (!isFileInputClicked) {
-          const index = uploadSlots.indexOf(slot);
-          multiFileInput.dataset.targetSlot = index;
+          currentTargetSlot = slot;
           multiFileInput.click();
         }
       }
     });
 
-    multiFileInput.addEventListener('change', () => {
+    multiFileInput.addEventListener('change', async () => {
+      console.log('Files selected via click:', multiFileInput.files);
       const files = multiFileInput.files;
-      const targetSlotIndex = parseInt(multiFileInput.dataset.targetSlot, 10);
-      const targetSlot = uploadSlots[targetSlotIndex];
-      handleFiles(files, uploadSlots, targetSlot);
+      await handleFiles(files, currentTargetSlot);
+      currentTargetSlot = null;
       setTimeout(() => {
         multiFileInput.value = '';
-        delete multiFileInput.dataset.targetSlot;
       }, 100);
+    });
+  }
+
+  // Setup paste functionality on the entire page
+  function setupPasteFunctionality() {
+    document.body.addEventListener('paste', async (event) => {
+      event.preventDefault();
+      const items = event.clipboardData.items;
+      const files = [];
+      
+      for (const item of items) {
+        if (item.kind === 'file') {
+          const blob = item.getAsFile();
+          if (blob && (blob.type.startsWith('image/') || blob.type === 'video/mp4')) {
+            files.push(blob);
+          }
+        } else if (item.type.startsWith('image/')) {
+          const blob = await new Promise(resolve => {
+            item.getAsString(str => {
+              const img = new Image();
+              img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                canvas.toBlob(resolve, 'image/png');
+              };
+              img.src = str;
+            });
+          });
+          if (blob) {
+            files.push(new File([blob], 'pasted-image.png', { type: 'image/png' }));
+          }
+        }
+      }
+
+      if (files.length > 0) {
+        await handleFiles(files);
+      }
     });
   }
 
@@ -317,64 +427,61 @@ if (document.body.getAttribute('data-wyrtensi-vidu-studio-injected') === 'true')
     });
   }
 
-  // Reposition and style buttons
-  function repositionAndStyleButtons(uploadWrapper, uploadSlots) {
-    let buttonContainer = uploadWrapper.querySelector('.upload-button-container');
-    if (!buttonContainer) {
-      buttonContainer = document.createElement('div');
-      buttonContainer.className = 'upload-button-container';
-      uploadWrapper.insertBefore(buttonContainer, uploadWrapper.firstChild);
-    }
-
-    uploadSlots.forEach((slot, index) => {
-      const buttons = slot.querySelector('.absolute.top-1.right-1.flex.items-center.gap-1.sm\\:hidden');
-      if (buttons && !buttons.classList.contains('repositioned')) {
-        const slotButtonWrapper = document.createElement('div');
-        slotButtonWrapper.className = 'upload-slot-buttons';
-        slotButtonWrapper.dataset.slotIndex = index;
-        slotButtonWrapper.appendChild(buttons.cloneNode(true));
-        buttonContainer.appendChild(slotButtonWrapper);
-        buttons.classList.add('repositioned');
-      }
-    });
-  }
-
-  // Setup button functionality
+  // Setup button functionality (ensuring no button container is created)
   function setupButtonFunctionality(uploadSlots) {
-    const buttons = document.querySelectorAll('.upload-button-container .flex.cursor-pointer');
-    buttons.forEach(button => {
-      button.addEventListener('click', (event) => {
-        event.stopPropagation();
-        const slotIndex = parseInt(button.closest('.upload-slot-buttons').dataset.slotIndex, 10);
-        const slot = uploadSlots[slotIndex];
-
-        const svgPath = button.querySelector('svg path');
-        if (svgPath && svgPath.getAttribute('d').includes('M4.5 5.5')) { // Trash can button
-          resetSlot(slot);
-          updateSlotStyles(slot);
-        }
-      });
-    });
+    // Since we're not creating or managing any button containers,
+    // this function can remain empty or handle slot-specific logic if needed.
+    // For now, it’s a no-op to avoid any accidental button container creation.
+    console.log('No button container setup performed as per request');
   }
 
-  // Inject upload styles
+  // Inject upload styles with enhanced specificity
   function injectUploadStyles() {
     if (!document.getElementById('upload-enhancement-styles')) {
       const style = document.createElement('style');
       style.id = 'upload-enhancement-styles';
       style.textContent = `
-        .relative.flex.dragover { outline: none; background: none; }
-        .upload-slot { opacity: 1 !important; transition: background 0.3s ease, outline 0.3s ease, box-shadow 0.3s ease; position: relative; border-radius: 8px; }
-        .upload-slot label { cursor: pointer !important; color: #E0E0E0 !important; }
-        .upload-slot:hover { background: rgba(74,144,226,0.15); }
-        .upload-slot.dragover { outline: 2px solid #4A90E2; background: rgba(74,144,226,0.1); box-shadow: 0 4px 12px rgba(74,144,226,0.3); }
-        .upload-slot.occupied { outline: 1px solid #4A90E2; background: linear-gradient(135deg, rgba(74,144,226,0.05), rgba(74,144,226,0.02)); }
-        .upload-slot.available { outline: 1px solid #666666; background: transparent; }
-        .upload-button-container { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 10px; max-width: 100%; }
-        .upload-slot-buttons { display: flex; gap: 5px; flex: 1; justify-content: center; }
-        .upload-button-container .flex.cursor-pointer { padding: 5px; background-color: transparent; border-radius: 50%; z-index: 20; transition: background 0.2s ease, transform 0.2s ease; }
-        .upload-button-container .flex.cursor-pointer:hover { background-color: rgba(255, 255, 255, 0.1); transform: scale(1.1); }
-        .upload-slot svg rect[stroke-dasharray] { display: none; }
+        /* Target parent class with higher specificity */
+        .relative.flex.w-full.flex-1.flex-col.rounded-12.bg-system-bg04.p-4.text-sm.lg\\:p-3 .upload-slot { 
+          opacity: 1 !important; 
+          transition: background 0.3s ease, outline 0.3s ease, box-shadow 0.3s ease; 
+          position: relative; 
+          border-radius: 8px; 
+          pointer-events: auto !important; 
+          cursor: pointer !important;
+        }
+        .relative.flex.w-full.flex-1.flex-col.rounded-12.bg-system-bg04.p-4.text-sm.lg\\:p-3 .upload-slot label { 
+          cursor: pointer !important; 
+          color: #E0E0E0 !important; 
+          pointer-events: auto !important; 
+        }
+        .relative.flex.w-full.flex-1.flex-col.rounded-12.bg-system-bg04.p-4.text-sm.lg\\:p-3 .upload-slot:hover { 
+          background: rgba(74,144,226,0.15); 
+        }
+        .relative.flex.w-full.flex-1.flex-col.rounded-12.bg-system-bg04.p-4.text-sm.lg\\:p-3 .upload-slot.dragover { 
+          outline: 2px solid #4A90E2; 
+          background: rgba(74,144,226,0.1); 
+          box-shadow: 0 4px 12px rgba(74,144,226,0.3); 
+        }
+        .relative.flex.w-full.flex-1.flex-col.rounded-12.bg-system-bg04.p-4.text-sm.lg\\:p-3 .upload-slot.occupied { 
+          outline: 1px solid #4A90E2; 
+          background: linear-gradient(135deg, rgba(74,144,226,0.05), rgba(74,144,226,0.02)); 
+        }
+        .relative.flex.w-full.flex-1.flex-col.rounded-12.bg-system-bg04.p-4.text-sm.lg\\:p-3 .upload-slot.available { 
+          outline: 1px solid #666666; 
+          background: transparent; 
+        }
+        /* Hide stop sign */
+        .relative.flex.w-full.flex-1.flex-col.rounded-12.bg-system-bg04.p-4.text-sm.lg\\:p-3 .upload-slot svg rect[stroke-dasharray] { 
+          display: none !important; 
+        }
+        /* Override disabled styles */
+        .relative.flex.w-full.flex-1.flex-col.rounded-12.bg-system-bg04.p-4.text-sm.lg\\:p-3 .upload-slot, 
+        .relative.flex.w-full.flex-1.flex-col.rounded-12.bg-system-bg04.p-4.text-sm.lg\\:p-3 .upload-slot * {
+          cursor: pointer !important;
+          opacity: 1 !important;
+          pointer-events: auto !important;
+        }
       `;
       document.head.appendChild(style);
     }
@@ -385,8 +492,8 @@ if (document.body.getAttribute('data-wyrtensi-vidu-studio-injected') === 'true')
     return location.pathname.includes('/create/character2video');
   }
 
-  // Setup mode observer with button re-positioning
-  function setupModeObserver(uploadWrapper, uploadSlots) {
+  // Setup mode observer
+  function setupModeObserver(uploadWrapper) {
     const modeContainer = document.querySelector('.mx-auto.rounded-12.bg-system-bg04.p-1');
     if (modeContainer) {
       const modeObserver = new MutationObserver((mutations) => {
@@ -396,8 +503,6 @@ if (document.body.getAttribute('data-wyrtensi-vidu-studio-injected') === 'true')
             if (targetButton.getAttribute('aria-selected') === 'true') {
               isSetupDone = false;
               debounceSetup();
-              // Re-position buttons after mode switch
-              setTimeout(() => repositionAndStyleButtons(uploadWrapper, uploadSlots), 500);
             }
           }
         });
@@ -406,36 +511,44 @@ if (document.body.getAttribute('data-wyrtensi-vidu-studio-injected') === 'true')
     }
   }
 
-  // Main setup function
+  // Main setup function with dynamic accept update
   async function setupUploadFunctionality() {
     try {
       if (!isOnReferenceToVideoTab() && !location.pathname.includes('/create/img2video')) return;
 
-      const uploadWrapper = await findUploadWrapper();
+      // Dynamically update accept attribute
+      const acceptTypes = (isOnReferenceToVideoTab() || location.pathname.includes('/create/img2video'))
+        ? 'image/jpeg,image/png,image/webp,video/mp4'
+        : 'image/jpeg,image/png,image/webp';
+      multiFileInput.accept = acceptTypes;
+      console.log('Updated multiFileInput.accept to:', multiFileInput.accept);
+
+      uploadWrapper = await findUploadWrapper();
       if (!uploadWrapper) return;
 
-      const uploadSlots = Array.from(uploadWrapper.querySelectorAll('.group'));
+      const uploadSlots = getCurrentUploadSlots();
       if (uploadSlots.length < 2) return;
 
       enableAllSlots(uploadSlots);
-      setupDragAndDrop(uploadWrapper, uploadSlots);
-      setupClickToUpload(uploadWrapper, uploadSlots);
-      repositionAndStyleButtons(uploadWrapper, uploadSlots);
-      setupButtonFunctionality(uploadSlots);
+      setupDragAndDrop(uploadWrapper);
+      setupClickToUpload(uploadWrapper);
+      setupPasteFunctionality();
+      setupButtonFunctionality(uploadSlots); // No button container creation here
       observeSlotChanges(uploadSlots);
       injectUploadStyles();
 
       uploadSlots.forEach(slot => updateSlotStyles(slot));
       isSetupDone = true;
 
-      // Pass uploadWrapper and uploadSlots to mode observer
-      setupModeObserver(uploadWrapper, uploadSlots);
+      setupModeObserver(uploadWrapper);
     } catch (error) {
       console.error("Error in setupUploadFunctionality:", error);
     }
   }
 
-  const debounceSetup = debounce(setupUploadFunctionality, 500);
+  const debounceSetup = debounce(() => {
+    setupPromise = setupUploadFunctionality();
+  }, 500);
 
   document.addEventListener('DOMContentLoaded', () => {
     if (isOnReferenceToVideoTab() || location.pathname.includes('/create/img2video')) debounceSetup();
@@ -454,6 +567,7 @@ if (document.body.getAttribute('data-wyrtensi-vidu-studio-injected') === 'true')
   }, 500);
 
   const formContainerObserver = new MutationObserver(debouncedObserverCallback);
+
   waitForElement('#form-container').then(container => {
     formContainerObserver.observe(container, { childList: true, subtree: true });
   }).catch(err => console.error(err));

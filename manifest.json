@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "wyrtensi vidu studio",
-  "version": "1.31",
+  "version": "1.4",
   "description": "Customizes the Vidu AI (vidu.com) page with additional functionality.",
   "permissions": [
     "scripting",
