@@ -20,7 +20,8 @@ Theres how:
 ### If you have chrome for example (it can be edge or opera as well):
 1. Go to extensions manager (chrome://extensions/) and enable developer mode 
 2. Download source files ( check latest release https://github.com/wyrtensi/vidu-studio/releases )
-3. Drag and drop to your browser or load unpacked the last version of extension folder
+3. Extract the source files
+4. Drag and drop to your browser or load unpacked the last version of extension folder
 - Or install using packed .crx file
 
 # Images:
