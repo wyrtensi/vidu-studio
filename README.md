@@ -1,7 +1,8 @@
 ![icon](https://github.com/user-attachments/assets/7d443a45-c11a-493c-b1c8-b8480c67124f)
 Discord: https://discord.gg/jjdPXdhd
-# wyrtensi vidu studio
+# wyrtensi vidu studio (Deprecated) No longer supported.
 A chrome extension that customizes the Vidu AI (vidu.com) page with additional functionality.<br> Mostly features "Reference to video" and "Image to video" modules improvements.
+
 # Features:
 1. Shows credits on your left side so you are always able to see em.
 2. Enhanced module for uploading pictures: (1) Drag and drop up to 3 pictures at once or open em by click or paste from clipboard. (2) All slots unlocked, you can use any slot to insert your picture.
