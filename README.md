@@ -1,5 +1,6 @@
 ![icon](https://github.com/user-attachments/assets/7d443a45-c11a-493c-b1c8-b8480c67124f)
-Discord: https://discord.gg/jjdPXdhd
+>Discord: https://discord.gg/3ZHmwVuA9u
+>
 # wyrtensi vidu studio (Deprecated) No longer supported.
 A chrome extension that customizes the Vidu AI (vidu.com) page with additional functionality.<br> Mostly features "Reference to video" and "Image to video" modules improvements.
 
